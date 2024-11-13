@@ -1,1 +1,28 @@
 name: CI reusable workflow
+
+on: 
+  workflow_call:
+    inputs:
+      node_version:
+        description: 'Node.js version to use for the build'
+        required: true
+        type: string
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with: 
+          node_version: ${{ inputs.node_version }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm test
+        
