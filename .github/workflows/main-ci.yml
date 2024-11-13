@@ -1,0 +1,13 @@
+name: CI Main Workflow
+
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    calls-reusable-ci:
+        uses: ./github/workflows/reusable-ci.yml
+        with:
+            node_version: '16.x'
+
