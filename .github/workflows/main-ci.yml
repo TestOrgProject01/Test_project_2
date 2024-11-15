@@ -7,7 +7,7 @@ on:
 
 jobs:
     calls-reusable-ci:
-        uses: ./github/workflows/reusable-ci.yml@v1.0
+        uses: TestOrgProject01/Test_project_2/.github/workflows/reusable-ci.yml@v1.0
         with:
             node_version: '16.x'
 
