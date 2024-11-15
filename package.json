@@ -1,12 +1,12 @@
 // package.json example
 {
-  "name" : "example-project"
+  "name" : "example-project",
   "version" : "1.0.0",
   "scripts"  : {
-      "build" : "echo 'Building project..'"
+      "build" : "echo 'Building project..'",
       "test"  : "echo 'Running tests...'"
   },
-  ""dependencies"  : {
+  "dependencies"  : {
     "jest" : "^27.0.0"
   }
 }
