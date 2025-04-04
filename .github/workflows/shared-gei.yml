@@ -1,0 +1,45 @@
+name: Shared GEI workflow
+on: push
+  
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+   Commit-history-mapping:
+    runs-on: ubuntu-latest
+    name: Commit-history-mapping - ${{ github.repository }}
+    
+
+    steps:
+      
+      - name: Trigger Commit-history-mapping in Target
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.GIT_TOKEN }}
+          event-type: Commit-history-mapping
+          client-payload: |
+            {
+              "repo_name": "${{ github.repository }}"
+            
+            }
+
+   Trigger-combined-data-items:
+    runs-on: ubuntu-latest
+    
+
+    steps:
+      - name: Print Variables
+        run: |
+          echo "Repository Name: "${{ github.repository }}""
+          
+
+      - name: Trigger Combined Data-Items Migration
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.GIT_TOKEN }}
+          event-type: combined-data-items
+          client-payload: '{"repo_name": "${{ github.repository }}"}'
+  
+  
