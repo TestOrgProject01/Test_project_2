@@ -30,6 +30,7 @@ jobs:
             }
 
    Trigger-combined-data-items:
+    name: combined-data-items - ${{ github.repository }}
     runs-on: ubuntu-latest
     
 
