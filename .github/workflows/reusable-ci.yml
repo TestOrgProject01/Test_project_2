@@ -1,12 +1,12 @@
 name: CI reusable workflow
 
 on: 
-  workflow_call:
-    inputs:
-      node_version:
-        description: 'Node.js version to use for the build'
-        required: true
-        type: string
+  # workflow_call:
+  #   inputs:
+  #     node_version:
+  #       description: 'Node.js version to use for the build'
+  #       required: true
+  #       type: string
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
