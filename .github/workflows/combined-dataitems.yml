@@ -1,5 +1,5 @@
 name: Combined Data-Items migrations 
-run-name: combined-data-items - ${{github.event.client_payload.repo_name}}
+# run-name: combined-data-items - ${{github.event.client_payload.repo_name}}
 
 on:
   repository_dispatch:
