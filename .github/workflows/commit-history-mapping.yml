@@ -1,0 +1,24 @@
+name: Extract Authors and Rewrite Commit History
+run-name: Commit-history-mapping - ${{github.event.client_payload.repo_name}}
+on:
+  repository_dispatch:
+    types: [Commit-history-mapping]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  extract-authors:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Read Input Variables
+        run: |
+          echo "Repository Name: ${{ github.event.client_payload.repo_name }}"
+          
+        
+      
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
