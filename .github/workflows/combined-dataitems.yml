@@ -3,7 +3,7 @@ name: Combined Data-Items migrations
 
 on:
   repository_dispatch:
-    types: [combined-data-items- ${{ github.repository }}]
+    types: ["combined-data-items-${{ github.repository }}"]
 
 jobs:  
   repo_level_migration:
