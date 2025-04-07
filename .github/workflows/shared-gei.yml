@@ -22,7 +22,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v1
         with:
           token: ${{ secrets.GIT_TOKEN }}
-          event-type: Commit-history-mapping-"${{ github.repository }}"
+          event-type: Commit-history-mapping
           client-payload: |
             {
               "repo_name": "${{ github.repository }}"
@@ -44,7 +44,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v1
         with:
           token: ${{ secrets.GIT_TOKEN }}
-          event-type: combined-data-items-"${{ github.repository }}"
+          event-type: combined-data-items
           client-payload: '{"repo_name": "${{ github.repository }}"}'
   
   
