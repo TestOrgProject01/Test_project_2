@@ -1,13 +1,13 @@
 name: Combined Data-Items migrations 
-# run-name: combined-data-items - ${{github.event.client_payload.repo_name}}
+run-name: combined-data-items - ${{github.event.client_payload.repo_name}}
 
 on:
   repository_dispatch:
-    types: ["combined-data-items-${{ github.repository }}"]
+    types: ["combined-data-items]
 
 jobs:  
   repo_level_migration:
-    name: Repo-Level Migration - ${{github.event.client_payload.repo_name}}
+    # name: Repo-Level Migration - ${{github.event.client_payload.repo_name}}
     runs-on: ubuntu-latest
     permissions:
       contents: read
