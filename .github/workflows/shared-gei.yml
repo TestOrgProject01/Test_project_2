@@ -13,7 +13,7 @@ permissions:
 jobs:
    Commit-history-mapping:
     runs-on: ubuntu-latest
-    name: Commit-history-mapping - ${{github.event.client_payload.repo_name}}
+    name: Commit-history-mapping - ${{github.repository}}
     
 
     steps:
@@ -30,7 +30,7 @@ jobs:
             }
 
    Trigger-combined-data-items:
-    name: combined-data-items - ${{github.event.client_payload.repo_name}}
+    name: combined-data-items - ${{github.repository}}
     runs-on: ubuntu-latest
     
 
