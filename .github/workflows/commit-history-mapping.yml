@@ -2,7 +2,7 @@ name: Extract Authors and Rewrite Commit History
 run-name: Commit-history-mapping - ${{github.event.client_payload.repo_name}}
 on:
   repository_dispatch:
-    types: ["Commit-history-mapping-${{ github.repository }}"]
+    types: [Commit-history-mapping]
 
 permissions:
   contents: write
