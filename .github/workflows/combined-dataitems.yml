@@ -3,7 +3,7 @@ run-name: combined-data-items - ${{github.event.client_payload.repo_name}}
 
 on:
   repository_dispatch:
-    types: ["combined-data-items]
+    types: [combined-data-items]
 
 jobs:  
   repo_level_migration:
