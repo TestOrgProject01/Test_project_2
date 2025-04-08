@@ -1,9 +1,23 @@
 name: Shared GEI workflow
-on: 
-  # push:
-  #   branches:
-  #    - main
-  workflow_dispatch:
+on:
+  workflow_call:
+    inputs:
+      locksourcerepo:
+        description: "Lock Source Repository after migration"
+        required: true
+        type: string
+      AZURE_DEVOPS_ORG:
+        description: "Azure DevOps Organization"
+        required: true
+        type: string
+      AZURE_DEVOPS_PROJECT:
+        description: "Azure DevOps Project"
+        required: true
+        type: string
+      ADO2GHA_DOWNLOAD_BRANCH:
+        description: "ADO2GHA migrated workflow will be downloaded into this branch"
+        required: true
+        type: string
   
 
 permissions:
