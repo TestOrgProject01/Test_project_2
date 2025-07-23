@@ -1,0 +1,69 @@
+name: JFrog Artifactory Repository Deletion Request
+description: Request to delete a JFrog Artifactory repository
+title: "[Artifactory Deletion] Request to delete {{ repository_name }}"
+labels: ["jfrog", "artifactory", "deletion"]
+
+body:
+  - type: input
+    id: repository_name
+    attributes:
+      label: Repository Name
+      description: "Enter the exact name of the Artifactory repository to be deleted (e.g., `libs-release-local`)"
+      placeholder: "e.g., nodejs-artifacts-temp"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: repository_type
+    attributes:
+      label: Repository Type
+      description: Select the type of the Artifactory repository
+      options:
+        - local
+        - remote
+        - virtual
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_organization
+    attributes:
+      label: Target Organization
+      description: Please select the owning organization of this repository
+      options:
+        - mgmri-commerce
+        - mgmri-dge
+        - mgmri-source
+        - mgmri-ciam
+        - Core
+        - mgmri-corp
+        - mgmri-data
+        - mgmri-eiam
+        - mgmri-entertainment
+        - mgmri-gaming
+        - mgmri-hotel
+        - mgmri-secops
+        - mgmri-shared
+    validations:
+      required: true
+
+  - type: textarea
+    id: justification
+    attributes:
+      label: Justification for Deletion
+      description: "Explain why this repository should be deleted (e.g., deprecated, no longer used, consolidated)"
+      placeholder: |
+        This Artifactory repository was used for a legacy service that has been decommissioned.
+        All artifacts have been archived or migrated.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes or Context
+      description: "Provide any relevant links, decommission plans, or cleanup steps"
+      placeholder: |
+        Ticket: https://jira.example.com/browse/OPS-1234
+    validations:
+      required: false
