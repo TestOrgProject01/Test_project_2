@@ -1,0 +1,121 @@
+name: Auto Delete Repository with Existence Check
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  update-title-and-instruct:
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'labeled') && contains(github.event.issue.labels.*.name, 'repo-deletion')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Extract repo name and org from issue body
+        id: parse
+        run: |
+          REPO_NAME=$(echo "${{ github.event.issue.body }}" | grep -E '^Repository Name: ' | sed 's/Repository Name: //')
+          ORG_NAME=$(echo "${{ github.event.issue.body }}" | grep -E '^Target Organization: ' | sed 's/Target Organization: //')
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Fail if repo or org not found in issue body
+        if: steps.parse.outputs.repo_name == '' || steps.parse.outputs.org_name == ''
+        run: |
+          echo "Repository name or organization not found in issue body. Aborting."
+          exit 1
+
+      - name: Update Issue Title to include repo name
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_TITLE="[Repo Deletion] Request for ${{ steps.parse.outputs.repo_name }}"
+          gh issue edit "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --title "$NEW_TITLE"
+
+      - name: Comment instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "To confirm deletion, comment exactly \`delete\` on this issue. This action is irreversible."
+
+  delete-repo-on-confirm:
+    if: github.event_name == 'issue_comment' && contains(github.event.issue.labels.*.name, 'repo-deletion')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Check comment for confirmation
+        id: check_comment
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          COMMENT_BODY=$(echo "$COMMENT_BODY" | tr -d '\r\n' | xargs)
+          if [ "${COMMENT_BODY,,}" = "delete" ]; then
+            echo "confirmed=true" >> $GITHUB_OUTPUT
+          else
+            echo "confirmed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract repo name and org from issue body
+        id: parse
+        run: |
+          REPO_NAME=$(echo "${{ github.event.issue.body }}" | grep -E '^Repository Name: ' | sed 's/Repository Name: //')
+          ORG_NAME=$(echo "${{ github.event.issue.body }}" | grep -E '^Target Organization: ' | sed 's/Target Organization: //')
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Fail if repo or org not found in issue body
+        if: steps.parse.outputs.repo_name == '' || steps.parse.outputs.org_name == ''
+        run: |
+          echo "Repository name or organization not found in issue body. Aborting."
+          exit 1
+
+      - name: Check if repository exists
+        if: steps.check_comment.outputs.confirmed == 'true'
+        id: check_repo
+        env:
+          ORG_ADMIN_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $ORG_ADMIN_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ steps.parse.outputs.org_name }}/${{ steps.parse.outputs.repo_name }}")
+          echo "HTTP status: $RESPONSE"
+          if [ "$RESPONSE" = "200" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete Repository
+        if: steps.check_comment.outputs.confirmed == 'true' && steps.check_repo.outputs.exists == 'true'
+        env:
+          ORG_ADMIN_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          curl -X DELETE \
+            -H "Authorization: Bearer $ORG_ADMIN_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ steps.parse.outputs.org_name }}/${{ steps.parse.outputs.repo_name }}"
+
+      - name: Comment on issue after deletion
+        if: steps.check_comment.outputs.confirmed == 'true' && steps.check_repo.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Repository \`${{ steps.parse.outputs.org_name }}/${{ steps.parse.outputs.repo_name }}\` has been **deleted** as requested."
+
+      - name: Comment if repository was not found
+        if: steps.check_comment.outputs.confirmed == 'true' && steps.check_repo.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Repository \`${{ steps.parse.outputs.org_name }}/${{ steps.parse.outputs.repo_name }}\` was **not found**. No deletion was performed."
