@@ -1,0 +1,160 @@
+name: Auto Delete Repository (with Confirmation)
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  handle-repo-deletion:
+    if: contains(github.event.issue.labels.*.name, 'repo-deletion')
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Determine event type
+        id: event_type
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "event=comment" >> $GITHUB_OUTPUT
+          else
+            echo "event=issue" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Parse issue body
+        id: parse
+        uses: stefanbuck/github-issue-parser@v3
+        with:
+          issue_body: ${{ github.event.issue.body }}
+
+      - name: Extract form values
+        id: extract
+        run: |
+          JSON='${{ steps.parse.outputs.jsonString }}'
+          echo "Full JSON: $JSON"
+
+          REPO_NAME=$(echo "$JSON" | jq -r '.repository_name')
+          ORG_NAME=$(echo "$JSON" | jq -r '.target_organization')
+
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
+
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "ORG_NAME=$ORG_NAME" >> $GITHUB_ENV
+
+      - name: On issue opened – update title and prompt user
+        if: steps.event_type.outputs.event == 'issue'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { REPO_NAME, ORG_NAME } = process.env;
+            const issue_number = context.issue.number;
+
+            // Update the issue title
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              title: `[Repo Deletion] Request to delete – ${REPO_NAME}`
+            });
+
+            // Add comment with instructions
+            const body = `👋 Thanks for your repository deletion request!
+
+To confirm the deletion of \`${ORG_NAME}/${REPO_NAME}\`, please reply to this issue with:
+
+\`\`\`
+delete
+\`\`\`
+
+⚠️ **This action is irreversible.** The repository will be permanently deleted once confirmed.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body
+            });
+
+      - name: Check if comment is "delete"
+        id: check_comment
+        if: steps.event_type.outputs.event == 'comment'
+        run: |
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          if [[ "$COMMENT_BODY" == "delete" ]]; then
+            echo "confirm=true" >> $GITHUB_OUTPUT
+          else
+            echo "confirm=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if repo exists
+        id: check_repo
+        if: steps.check_comment.outputs.confirm == 'true'
+        env:
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+          echo "Checking existence of ${ORG_NAME}/${REPO_NAME}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GIT_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${ORG_NAME}/${REPO_NAME})
+
+          echo "Repo check HTTP status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete the repository
+        if: steps.check_repo.outputs.exists == 'true'
+        env:
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+          echo "Deleting ${ORG_NAME}/${REPO_NAME}"
+          curl -s -X DELETE -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GIT_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${ORG_NAME}/${REPO_NAME}
+
+      - name: Comment and close issue (success)
+        if: steps.check_repo.outputs.exists == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const { ORG_NAME, REPO_NAME } = process.env;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body: `✅ Repository \`${ORG_NAME}/${REPO_NAME}\` has been successfully deleted. Closing this issue.`
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              state: "closed"
+            });
+
+      - name: Comment if repo not found
+        if: steps.check_repo.outputs.exists == 'false'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const { ORG_NAME, REPO_NAME } = process.env;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body: `⚠️ Repository \`${ORG_NAME}/${REPO_NAME}\` was not found. No deletion performed.`
+            });
