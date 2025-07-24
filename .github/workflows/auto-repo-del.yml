@@ -10,24 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: write  # Needed to delete the repository
+      contents: write  # Required for repository deletion
 
     steps:
 
-      - name: Parse issue body
-        id: parse
-        uses: stefanbuck/github-issue-parser@v3
-
-      - name: Echo parsed JSON
-        run: echo "${{ steps.parse.outputs.jsonString }}"
-
-      - name: Extract values and export as outputs
+      - name: Extract values from issue form
         id: extract
         run: |
-          REPO_NAME="${{ fromJson(steps.parse-issue-body.outputs.jsonString).build_name }}"
-          ORG="${{ fromJson(steps.parse-issue-body.outputs.jsonString).organization }}"
-          echo "Parsed Organization: $ORG"
-          echo "Parsed Build Name: $REPO_NAME"
+          echo "Extracting fields from issue form..."
+
+          REPO_NAME=$(jq -r '.repository_name' <<< "${{ toJson(github.event.issue.body) }}")
+          ORG_NAME=$(jq -r '.organization' <<< "${{ toJson(github.event.issue.body) }}")
+
+          echo "Parsed Repository Name: $REPO_NAME"
+          echo "Parsed Organization: $ORG_NAME"
+
+          if [[ -z "$REPO_NAME" || -z "$ORG_NAME" ]]; then
+            echo "❌ Missing repository_name or organization"
+            exit 1
+          fi
 
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
@@ -55,10 +56,10 @@ jobs:
             const body = `
               ### 📝 Issue Title Updated
 
-             The issue title has been updated to reflect the repository name \`${process.env.REPO_NAME}\`.
+              The issue title has been updated to reflect the repository name \`${process.env.REPO_NAME}\`.
 
-            [View this workflow run](${runUrl})
-            `;
+              [View this workflow run](${runUrl})
+              `;
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -71,6 +72,7 @@ jobs:
         env:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
+          echo "Checking existence of repo: ${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}"
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: Bearer $GIT_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -88,6 +90,7 @@ jobs:
         env:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
+          echo "Deleting repository..."
           curl -X DELETE \
             -H "Authorization: Bearer $GIT_TOKEN" \
             -H "Accept: application/vnd.github+json" \
