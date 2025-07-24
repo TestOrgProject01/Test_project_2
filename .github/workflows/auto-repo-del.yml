@@ -10,25 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: write  # Required for repository deletion
+      contents: write  # Needed to delete repos
 
     steps:
+      - name: Parse issue body with parser
+        id: parse
+        uses: stefanbuck/github-issue-parser@v3
 
-      - name: Extract values from issue form
+      - name: Debug parsed JSON
+        run: |
+          echo "Parser JSON output:"
+          echo "${{ steps.parse.outputs.jsonString }}"
+
+      - name: Extract form values
         id: extract
         run: |
-          echo "Extracting fields from issue form..."
-
-          REPO_NAME=$(jq -r '.repository_name' <<< "${{ toJson(github.event.issue.body) }}")
-          ORG_NAME=$(jq -r '.organization' <<< "${{ toJson(github.event.issue.body) }}")
-
-          echo "Parsed Repository Name: $REPO_NAME"
-          echo "Parsed Organization: $ORG_NAME"
-
-          if [[ -z "$REPO_NAME" || -z "$ORG_NAME" ]]; then
-            echo "❌ Missing repository_name or organization"
-            exit 1
-          fi
+          JSON='${{ steps.parse.outputs.jsonString }}'
+          REPO_NAME=$(echo "$JSON" | jq -r '."Repository Name"')
+          ORG_NAME=$(echo "$JSON" | jq -r '."Target Organization"')
 
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
@@ -40,31 +39,24 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const newTitle = `[Repo Deletion] Request to delete - ${process.env.REPO_NAME}`;
+            const title = `[Repo Deletion] Request to delete – ${process.env.REPO_NAME}`;
             await github.rest.issues.update({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: newTitle
+              issue_number: context.issue.number,
+              title
             });
 
-      - name: Comment on Issue Title Update
+      - name: Comment on Title Update
         uses: actions/github-script@v6
         with:
           script: |
-            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const body = `
-              ### 📝 Issue Title Updated
-
-              The issue title has been updated to reflect the repository name \`${process.env.REPO_NAME}\`.
-
-              [View this workflow run](${runUrl})
-              `;
+            const runUrl = `${github.server_url}/${github.repository}/actions/runs/${github.run_id}`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
+              issue_number: context.issue.number,
+              body: `📝 Issue title updated to reflect deletion request for \`${process.env.REPO_NAME}\`.\n\n🔗 [View workflow run](${runUrl})`
             });
 
       - name: Check if repository exists
@@ -72,13 +64,15 @@ jobs:
         env:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
-          echo "Checking existence of repo: ${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}"
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $GIT_TOKEN" \
+          echo "🔍 Checking if repository exists: ${ORG_NAME}/${REPO_NAME}"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -L \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}")
+            -H "Authorization: Bearer $GIT_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${ORG_NAME}/${REPO_NAME})
 
           echo "HTTP status: $RESPONSE"
+
           if [ "$RESPONSE" = "200" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
@@ -90,11 +84,12 @@ jobs:
         env:
           GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
-          echo "Deleting repository..."
-          curl -X DELETE \
-            -H "Authorization: Bearer $GIT_TOKEN" \
+          echo "🗑️ Deleting repository: ${ORG_NAME}/${REPO_NAME}"
+          curl -s -L -X DELETE \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}"
+            -H "Authorization: Bearer $GIT_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${ORG_NAME}/${REPO_NAME}
 
       - name: Comment on issue after deletion
         if: steps.check_repo.outputs.exists == 'true'
@@ -103,7 +98,7 @@ jobs:
         run: |
           gh issue comment "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
-            --body "✅ Repository \`${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}\` has been **deleted** automatically."
+            --body "✅ Repository \`${ORG_NAME}/${REPO_NAME}\` has been **deleted** successfully."
 
       - name: Comment if repository was not found
         if: steps.check_repo.outputs.exists == 'false'
@@ -112,4 +107,4 @@ jobs:
         run: |
           gh issue comment "${{ github.event.issue.number }}" \
             --repo "${{ github.repository }}" \
-            --body "⚠️ Repository \`${{ steps.extract.outputs.org_name }}/${{ steps.extract.outputs.repo_name }}\` was **not found**. No deletion was performed."
+            --body "⚠️ Repository \`${ORG_NAME}/${REPO_NAME}\` was **not found**. No deletion was performed."
