@@ -26,14 +26,19 @@ jobs:
         id: extract
         run: |
           JSON='${{ steps.parse.outputs.jsonString }}'
-          REPO_NAME=$(echo "$JSON" | jq -r '."Repository Name"')
-          ORG_NAME=$(echo "$JSON" | jq -r '."Target Organization"')
+          
+          REPO_NAME=$(echo "$JSON" | jq -r '.repository_name')
+          ORG_NAME=$(echo "$JSON" | jq -r '.target_organization')
+
+          echo "Parsed Repo Name: $REPO_NAME"
+          echo "Parsed Org Name: $ORG_NAME"
 
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
 
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "ORG_NAME=$ORG_NAME" >> $GITHUB_ENV
+
 
       - name: Update Issue Title
         uses: actions/github-script@v6
