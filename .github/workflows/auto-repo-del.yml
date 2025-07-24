@@ -24,9 +24,10 @@ jobs:
       - name: Extract values and export as outputs
         id: extract
         run: |
-          JSON='${{ steps.parse.outputs.jsonString }}'
-          REPO_NAME=$(echo "$JSON" | jq -r .repository_name)
-          ORG_NAME=$(echo "$JSON" | jq -r .organization)
+          REPO_NAME="${{ fromJson(steps.parse-issue-body.outputs.jsonString).build_name }}"
+          ORG="${{ fromJson(steps.parse-issue-body.outputs.jsonString).organization }}"
+          echo "Parsed Organization: $ORG"
+          echo "Parsed Build Name: $REPO_NAME"
 
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "org_name=$ORG_NAME" >> $GITHUB_OUTPUT
