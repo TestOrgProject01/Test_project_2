@@ -52,12 +52,12 @@ jobs:
           script: |
             const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
             const body = `
-### 📝 Issue Title Updated
+              ### 📝 Issue Title Updated
 
-The issue title has been updated to reflect the repository name \`${process.env.REPO_NAME}\`.
+             The issue title has been updated to reflect the repository name \`${process.env.REPO_NAME}\`.
 
-[View this workflow run](${runUrl})
-`;
+            [View this workflow run](${runUrl})
+            `;
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
