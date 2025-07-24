@@ -20,6 +20,7 @@ body:
       description: Please select the organization that owns the repository
       options:
         - mgmri-commerce
+        - TestOrgProject01
         - mgmri-dge
         - mgmri-source
         - mgmri-ciam
