@@ -1,0 +1,58 @@
+name: GitHub Repository Deletion Request
+description: Request to delete a GitHub repository from the organization
+title: "[Repo Deletion] Request to delete {{ repository_name }}"
+labels: ["github", "repository", "deletion"]
+
+body:
+  - type: input
+    id: repository_name
+    attributes:
+      label: Repository Name
+      description: "Enter the exact name of the GitHub repository to be deleted (e.g., `my-old-repo`)"
+      placeholder: "e.g., legacy-app-api"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: organization
+    attributes:
+      label: Target Organization
+      description: Please select the organization that owns the repository
+      options:
+        - mgmri-commerce
+        - mgmri-dge
+        - mgmri-source
+        - mgmri-ciam
+        - Core
+        - mgmri-corp
+        - mgmri-data
+        - mgmri-eiam
+        - mgmri-entertainment
+        - mgmri-gaming
+        - mgmri-hotel
+        - mgmri-secops
+        - mgmri-shared
+    validations:
+      required: true
+
+  - type: textarea
+    id: justification
+    attributes:
+      label: Justification for Deletion
+      description: "Explain why this repository needs to be deleted. Mention if it's deprecated, merged, or duplicated."
+      placeholder: |
+        This repository is no longer maintained and has been merged into `main-app-backend`.
+        All workflows and references have been migrated.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes or Context
+      description: "Provide any additional details, links, or cleanup references if applicable."
+      placeholder: |
+        Related deprecation ticket: https://jira.company.com/browse/PROJ-123
+        Last commit: https://github.com/org/legacy-app-api/commit/abc123
+    validations:
+      required: false
