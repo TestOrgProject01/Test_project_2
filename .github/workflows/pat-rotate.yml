@@ -18,7 +18,9 @@ jobs:
 
           echo "Checking GitHub PAT expiry..."
           RESP=$(curl -sI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user)
-          EXPIRY=$(echo "$RESP" | grep -i 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d ' \r\n')
+
+          # Extract and fix the expiry format
+          EXPIRY=$(echo "$RESP" | grep -i 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d '\r' | sed 's/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)\([0-9:]\{8\}.*\)/\1 \2/')
 
           if [[ -z "$EXPIRY" ]]; then
             echo "⚠️  Could not retrieve token expiration. This may not be a fine-grained PAT."
