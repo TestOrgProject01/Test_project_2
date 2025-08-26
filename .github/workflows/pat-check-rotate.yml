@@ -1,0 +1,77 @@
+name: Rotate Org-Level PAT if Expiring
+
+on:
+  # schedule:
+  #   - cron: '0 3 * * *'  # Every day at 3 AM UTC
+  workflow_dispatch:
+
+jobs:
+  rotate-org-pat:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN_EXPIRY_THRESHOLD_DAYS: 7
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install gh -y
+
+      - name: Authenticate GitHub CLI
+        run: |
+          echo "${{ secrets.GIT_TOKEN }}" | gh auth login --with-token
+
+      - name: Check PAT Expiry
+        id: check
+        run: |
+          PAT_NAME="${{ secrets.GIT_TOKEN }}"
+          echo "Checking PAT: $PAT_NAME"
+
+          TOKEN_JSON=$(gh api user/personal-access-tokens)
+          TOKEN=$(echo "$TOKEN_JSON" | jq -r ".[] | select(.name == \"$PAT_NAME\")")
+
+          if [ -z "$TOKEN" ]; then
+            echo "❌ No PAT named '$PAT_NAME' found."
+            exit 1
+          fi
+
+          EXPIRES_AT=$(echo "$TOKEN" | jq -r '.expires_at')
+          echo "Token expires at: $EXPIRES_AT"
+
+          now=$(date -u +%s)
+          expiry_ts=$(date -d "$EXPIRES_AT" +%s)
+          diff_days=$(( (expiry_ts - now) / 86400 ))
+
+          echo "Days to expiry: $diff_days"
+
+          if [ "$diff_days" -le "$TOKEN_EXPIRY_THRESHOLD_DAYS" ]; then
+            echo "expiring=true" >> $GITHUB_OUTPUT
+            echo "token_id=$(echo "$TOKEN" | jq -r '.id')" >> $GITHUB_OUTPUT
+          else
+            echo "expiring=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create New PAT
+        if: steps.check.outputs.expiring == 'true'
+        id: new_token
+        run: |
+          NEW_PAT=$(gh api user/personal-access-tokens \
+            -f name="${{ secrets.GIT_TOKEN }}-rotated-$(date +%s)" \
+            -f scopes="repo,workflow" \
+            -f expiration="30d" \
+            --jq '.token')
+
+          echo "::add-mask::$NEW_PAT"
+          echo "new_pat=$NEW_PAT" >> $GITHUB_OUTPUT
+
+      - name: Update Org-Level Secret
+        if: steps.check.outputs.expiring == 'true'
+        run: |
+          gh secret set ${{ secrets.GIT_TOKEN }} \
+            --org TestOrgProject01 \
+            --body "${{ steps.new_token.outputs.new_pat }}"
+
+      # - name: Revoke Old PAT (optional)
+      #   if: steps.check.outputs.expiring == 'true'
+      #   run: |
+      #     echo "Revoking old PAT with ID: ${{ steps.check.outputs.token_id }}"
+      #     gh api --method DELETE /user/personal-access-tokens/${{ steps.check.outputs.token_id }}
