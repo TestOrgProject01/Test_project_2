@@ -1,0 +1,20 @@
+name: Enforce PAT Expiry
+ 
+on:
+  # schedule:
+  #   - cron: "0 0 * * *" # daily
+  workflow_dispatch:
+ 
+jobs:
+  check-expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PAT expiry via API
+        env:
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+          RESP=$(curl -sI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user)
+          EXPIRY=$(echo "$RESP" | grep -Fi 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d ' \r\n')
+          echo "PAT expires at: $EXPIRY"
+          # Add logic to compare date, notify if nearing expiry
+ 
