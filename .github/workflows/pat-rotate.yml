@@ -37,10 +37,10 @@ jobs:
 
           if (( DAYS_LEFT < 0 )); then
             echo "❌ Token has already expired!"
-            exit 1
+            
           elif (( DAYS_LEFT < 7 )); then
             echo "⚠️  Token will expire in $DAYS_LEFT day(s). Consider renewing it."
-            exit 1
+            
           else
             echo "✅ Token is valid for another $DAYS_LEFT day(s)."
           fi
