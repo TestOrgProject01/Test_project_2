@@ -1,10 +1,11 @@
 name: Enforce PAT Expiry
- 
+
 on:
+  # Uncomment to run on a schedule
   # schedule:
   #   - cron: "0 0 * * *" # daily
   workflow_dispatch:
- 
+
 jobs:
   check-expiry:
     runs-on: ubuntu-latest
@@ -13,8 +14,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GIT_TOKEN }}
         run: |
+          set -e
+
+          echo "Checking GitHub PAT expiry..."
           RESP=$(curl -sI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user)
-          EXPIRY=$(echo "$RESP" | grep -Fi 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d ' \r\n')
-          echo "PAT expires at: $EXPIRY"
-          # Add logic to compare date, notify if nearing expiry
- 
+          EXPIRY=$(echo "$RESP" | grep -i 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d ' \r\n')
+
+          if [[ -z "$EXPIRY" ]]; then
+            echo "⚠️  Could not retrieve token expiration. This may not be a fine-grained PAT."
+            exit 1
+          fi
+
+          echo "✅ PAT expires at: $EXPIRY"
+
+          EXPIRY_DATE=$(date -d "$EXPIRY" +%s)
+          NOW=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_DATE - NOW) / 86400 ))
+
+          echo "🕒 Days until expiration: $DAYS_LEFT"
+
+          if (( DAYS_LEFT < 0 )); then
+            echo "❌ Token has already expired!"
+            exit 1
+          elif (( DAYS_LEFT < 7 )); then
+            echo "⚠️  Token will expire in $DAYS_LEFT day(s). Consider renewing it."
+            exit 1
+          else
+            echo "✅ Token is valid for another $DAYS_LEFT day(s)."
+          fi
