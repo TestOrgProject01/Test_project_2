@@ -1,0 +1,49 @@
+name: Enforce PAT Expiry
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PAT expiry via API and generate CSV
+        env:
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+          set -e
+
+          echo "Checking GitHub PAT expiry..."
+          RESP=$(curl -sI -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user)
+          
+          EXPIRY=$(echo "$RESP" | grep -i 'GitHub-Authentication-Token-Expiration' | cut -d':' -f2- | tr -d '\r' | sed 's/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)\([0-9:]\{8\}.*\)/\1 \2/')
+          
+          if [[ -z "$EXPIRY" ]]; then
+            echo "⚠️  Could not retrieve token expiration. This may not be a fine-grained PAT."
+            exit 1
+          fi
+
+          echo "✅ PAT expires at: $EXPIRY"
+
+          EXPIRY_DATE=$(date -d "$EXPIRY" +%s)
+          NOW=$(date +%s)
+          DAYS_LEFT=$(( (EXPIRY_DATE - NOW) / 86400 ))
+
+          echo "🕒 Days until expiration: $DAYS_LEFT"
+
+          # Get username of PAT creator
+          USERNAME=$(curl -s -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user | jq -r .login)
+
+          # Prepare CSV
+          REPORT_FILE="pat_expiry_report.csv"
+          echo "username,days_until_expiration" > $REPORT_FILE
+          echo "$USERNAME,$DAYS_LEFT" >> $REPORT_FILE
+
+          echo "CSV report generated:"
+          cat $REPORT_FILE
+
+      - name: Upload CSV as workflow artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pat-expiry-report
+          path: pat_expiry_report.csv
