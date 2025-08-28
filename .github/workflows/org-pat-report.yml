@@ -8,13 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
       - name: Generate PAT expiry CSV report for organization
         env:
-          GH_TOKEN: ${{ secrets.GIT_TOKEN }} # Must be a fine-grained PAT with org:read scope
-          ORG: TestOrgProject01                # <-- Change this to your actual org name
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }} # Fine-grained PAT with org:read scope
+          ORG: TestOrgProject01             # <-- Change to your org name if needed
         run: |
           # Fetch all org fine-grained PATs
           curl -s -H "Accept: application/vnd.github+json" \
@@ -22,16 +19,32 @@ jobs:
                -H "X-GitHub-Api-Version: 2022-11-28" \
                "https://api.github.com/orgs/$ORG/personal-access-tokens" > tokens.json
 
-          # Generate CSV: username,days_until_expiration
+          echo "----- API Response -----"
+          cat tokens.json
+          echo "-----------------------"
+
           echo "username,days_until_expiration" > pat_expiry_report.csv
-          jq -r '.[] | select(.expires_at != null) | 
+
+          # Check if response is an array (success) or object (error)
+          if jq -e 'type=="array"' tokens.json; then
+            jq -r '.[] | select(.expires_at != null) | 
               .created_by.login as $user | 
               .expires_at as $exp | 
               (((strptime($exp, "%Y-%m-%dT%H:%M:%SZ") | mktime) - now) / 86400 | floor) as $days | 
               "\($user),\($days)"' tokens.json >> pat_expiry_report.csv
+          else
+            echo "Unexpected API response format! See above."
+            exit 1
+          fi
 
           echo "CSV report generated:"
           cat pat_expiry_report.csv
+
+      - name: Upload CSV as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pat-expiry-report
+          path: pat_expiry_report.csv
 
       - name: Upload CSV as workflow artifact
         uses: actions/upload-artifact@v4
