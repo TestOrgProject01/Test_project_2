@@ -14,7 +14,7 @@ jobs:
       - name: Generate PAT expiry CSV report for organization
         env:
           GH_TOKEN: ${{ secrets.GIT_TOKEN }} # Must be a fine-grained PAT with org:read scope
-          ORG: your-org-name                # <-- Change this to your actual org name
+          ORG: TestOrgProject01                # <-- Change this to your actual org name
         run: |
           # Fetch all org fine-grained PATs
           curl -s -H "Accept: application/vnd.github+json" \
