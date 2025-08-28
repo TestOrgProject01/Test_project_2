@@ -19,7 +19,7 @@ jobs:
       - name: Generate PAT report
         env:
           ORG_NAME: TestOrgProject01
-          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}  # Token must have admin:org
+          GIT_TOKEN: ${{ secrets.GH_ORG_PAT }}  # Token must have admin:org
         run: |
           echo "📄 Starting GitHub PAT report for org: $ORG_NAME"
 
