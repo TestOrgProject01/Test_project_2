@@ -1,52 +1,57 @@
 name: Generate Org PAT Report
- 
+
 on:
   workflow_dispatch: # Run manually
   # schedule:
   #   - cron: "0 3 * * 1"   # Every Monday 3 AM UTC
 
-  
 jobs:
   generate-report:
     runs-on: ubuntu-latest
- 
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
- 
+
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
- 
+
       - name: Generate PAT report
+        env:
+          ORG_NAME: TestOrgProject01
+          GIT_TOKEN: ${{ secrets.GIT_TOKEN }}  # Token must have admin:org
         run: |
-          ORG_NAME="TestOrgProject01"
-          TOKEN="${secrets.GIT_TOKEN}"
- 
+          echo "📄 Starting GitHub PAT report for org: $ORG_NAME"
+
           echo "Token ID,Token Name,Created By,Created At,Expires At,Repositories,Permissions" > org_pat_report.csv
- 
-          response=$(curl -s -H "Authorization: Bearer $TOKEN" \
+
+          response=$(curl -s -H "Authorization: Bearer $GIT_TOKEN" \
                            -H "Accept: application/vnd.github+json" \
                            "https://api.github.com/orgs/$ORG_NAME/personal-access-tokens")
- 
-          echo "$response" | jq -r '
-            .personal_access_tokens[] |
-            [
-              .id,
-              .token_name,
-              .user.login,
-              .created_at,
-              .expires_at,
-              (.repositories | map(.name) | join(";")),
-              (.permissions | keys | join(";"))
-            ] | @csv
-          ' >> org_pat_report.csv
- 
-          echo "✅ Report generated: org_pat_report.csv"
- 
+
+          if echo "$response" | jq -e '.personal_access_tokens' > /dev/null; then
+            echo "$response" | jq -r '
+              .personal_access_tokens[] |
+              [
+                .id,
+                .token_name,
+                .user.login,
+                .created_at,
+                .expires_at,
+                (.repositories | map(.name) | join(";")),
+                (.permissions | keys | join(";"))
+              ] | @csv
+            ' >> org_pat_report.csv
+
+            echo "✅ Report generated: org_pat_report.csv"
+          else
+            echo "❌ Failed to retrieve PATs or no tokens found."
+            echo "$response"
+            exit 1
+          fi
+
       - name: Upload PAT report
         uses: actions/upload-artifact@v4
         with:
           name: org-pat-report
           path: org_pat_report.csv
- 
-   
